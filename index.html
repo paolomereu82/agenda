@@ -116,8 +116,7 @@ h4{margin:22px 4px 8px;font-size:14px}
     <button class="btn gh" id="ns" style="width:100%">+ Nuova sezione</button>
     <h4>Backup</h4>
     <p class="mu" id="bk"></p>
-    <div class="acts" style="margin-top:8px"><button class="btn" id="ej">Esporta backup</button><button class="btn gh" id="eh">Versione leggibile</button></div>
-    <div class="acts" style="margin-top:10px"><button class="btn gh" id="im">Importa backup</button></div>
+    <div class="acts" style="margin-top:8px"><button class="btn" id="ej">Esporta backup</button><button class="btn gh" id="im">Importa backup</button></div>
     <input type="file" id="imf" accept=".json,application/json" hidden>
     <h4>Pulizia</h4>
     <p class="mu">Elimina le voci delle sezioni temporanee precedenti a una data.</p>
@@ -323,14 +322,6 @@ function secForm(s){
 /* ---------- BACKUP ---------- */
 function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
 $('#ej').onclick=()=>{DB.meta.last=Date.now();save();dl('agenda-backup-'+fmt(new Date())+'.json',JSON.stringify({app:'agenda',v:1,data:DB},null,1),'application/json');renderSet();toast('Backup salvato nei download')};
-$('#eh').onclick=()=>{dl('agenda-leggibile-'+fmt(new Date())+'.html',readable(),'text/html');toast('File salvato nei download')};
-function readable(){
-  const e=esc;let h='<!doctype html><meta charset="utf-8"><title>Agenda</title><style>body{font:16px system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px}h2{color:#fff;padding:8px 12px;border-radius:8px}h3{margin:14px 0 4px}li{margin:4px 0}small{color:#555;white-space:pre-wrap}</style><h1>Agenda del '+fmt(new Date())+'</h1>';
-  secs().forEach(s=>{h+=`<h2 style="background:${e(s.colore)}">${e(s.titolo)} <small style="color:#fff">(${s.tipo})</small></h2>`;
-    const L=DB.items.filter(i=>i.s===s.id),li=i=>`<li>${i.f?'☑':'☐'} ${e(i.t)}${i.x?'<br><small>'+e(i.x)+'</small>':''}</li>`;
-    if(s.tipo==='temporanea'){[...new Set(L.map(i=>i.d))].sort().forEach(d=>{h+=`<h3>${longD(d)}</h3><ul>`+L.filter(i=>i.d===d).sort((a,b)=>a.o-b.o).map(li).join('')+'</ul>'})}
-    else h+='<ul>'+L.sort((a,b)=>a.o-b.o).map(li).join('')+'</ul>'});
-  return h}
 $('#cl').onclick=()=>{const v=$('#cd').value;if(!v)return toast('Scegli una data');
   const n=DB.items.filter(i=>i.d&&i.d<v).length;if(!n)return toast('Nessuna voce da eliminare');
   if(!confirm('Eliminare '+n+' voci temporanee precedenti al '+longD(v)+'?'))return;

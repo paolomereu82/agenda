@@ -95,6 +95,15 @@ h4{margin:22px 4px 8px;font-size:14px}
   <div class="body" id="db"></div>
 </div>
 
+<div class="scr" id="agg">
+  <div class="top">
+    <button class="ib" id="ba" data-ic="left"></button>
+    <div class="tt" id="at" style="font-size:17px;font-weight:800"></div>
+    <button class="ib" data-set data-ic="gear"></button>
+  </div>
+  <div class="body" id="ab"></div>
+</div>
+
 <div class="scr" id="set">
   <div class="top">
     <button class="ib" id="bs" data-ic="left"></button>
@@ -110,6 +119,10 @@ h4{margin:22px 4px 8px;font-size:14px}
     <div class="acts" style="margin-top:8px"><button class="btn" id="ej">Esporta backup</button><button class="btn gh" id="eh">Versione leggibile</button></div>
     <div class="acts" style="margin-top:10px"><button class="btn gh" id="im">Importa backup</button></div>
     <input type="file" id="imf" accept=".json,application/json" hidden>
+    <h4>Pulizia</h4>
+    <p class="mu">Elimina le voci delle sezioni temporanee precedenti a una data.</p>
+    <input type="date" id="cd">
+    <div class="acts" style="margin-top:10px"><button class="btn dg" id="cl">Elimina voci vecchie</button></div>
   </div>
 </div>
 
@@ -169,7 +182,7 @@ let prev='day',cur=fmt(T0);
 function show(id){if(id!=='set')prev=id;$$('.scr').forEach(e=>e.classList.toggle('on',e.id===id))}
 $$('[data-ic]').forEach(e=>e.innerHTML=ico(e.dataset.ic));
 $$('[data-set]').forEach(e=>e.onclick=()=>{renderSet();show('set')});
-$('#bs').onclick=()=>{show(prev);if(prev==='day')renderDay()};
+$('#bs').onclick=()=>{show(prev);if(prev==='day')renderDay();else if(prev==='agg')renderAgg(false)};
 
 /* ---------- CALENDARIO ---------- */
 const REF=300; // più è alto, più tardi scatta il cambio mese durante lo scroll
@@ -205,9 +218,15 @@ $('#yl').onclick=pickMonth;$('#ml').onclick=pickMonth;
 $('#mp').onchange=e=>{const v=e.target.value;if(v){const p=v.split('-');goWeek(new Date(+p[0],p[1]-1,1))}};
 
 /* ---------- GIORNO ---------- */
-function openDay(d){cur=d;show('day');renderDay()}
+function openDay(d){cur=d;RR=renderDay;show('day');renderDay()}
 $('#pv').onclick=()=>openDay(fmt(addD(parse(cur),-1)));
 $('#nx').onclick=()=>openDay(fmt(addD(parse(cur),1)));
+let RR=renderDay;
+function rowHTML(i,s,d){
+  const dn=isDone(i,s,d),tmp=s.tipo==='temporanea',a=`data-s="${s.id}" data-i="${i.id}" data-d="${d}"`;
+  return `<div class="row${dn?' dn':''}" data-a="tg" ${a}><span class="ck">${dn?ico('ok',16):''}</span><span class="tx">${esc(i.t)}${i.x&&i.x.trim()?' *':''}</span>`
+  +(tmp?`<button class="ib mv" data-a="mv" data-n="-1" ${a}>${ico('left',18)}</button><button class="ib mv" data-a="mv" data-n="1" ${a}>${ico('right',18)}</button><button class="ib mv" data-a="md" ${a}>${ico('ne',18)}</button>`:'')
+  +`<button class="ib rm" data-a="rm" ${a}>${ico('x',17)}</button><button class="ib" data-a="in" ${a}>${ico('info',18)}</button></div>`}
 function renderDay(){
   const b=$('#db'),y=b.scrollTop;$('#dt').textContent=longD(cur);
   let h='';
@@ -217,50 +236,63 @@ function renderDay(){
   if(!S.length)h+='<div class="em">Nessuna sezione. Aprine una dalle impostazioni.</div>';
   S.forEach(s=>{
     const L=dayItems(s,cur),tmp=s.tipo==='temporanea';
-    h+=`<div class="box" style="--c:${esc(s.colore)}"><div class="bh"><b>${esc(s.titolo)}</b><button data-a="ed" data-s="${s.id}">Modifica</button></div>`;
+    h+=`<div class="box" style="--c:${esc(s.colore)}"><div class="bh"><b${tmp?` data-a="ag" data-s="${s.id}" style="cursor:pointer"`:''}>${esc(s.titolo)}${tmp?' ›':''}</b><button data-a="ed" data-s="${s.id}" data-d="${cur}">Modifica</button></div>`;
     if(!L.length)h+='<div class="em">Nessun impegno.</div>';
-    L.forEach(i=>{const dn=isDone(i,s,cur);
-      h+=`<div class="row${dn?' dn':''}" data-a="tg" data-s="${s.id}" data-i="${i.id}"><span class="ck">${dn?ico('ok',16):''}</span><span class="tx">${esc(i.t)}${i.x&&i.x.trim()?' *':''}</span>`
-      +(tmp?`<button class="ib mv" data-a="mv" data-n="-1" data-s="${s.id}" data-i="${i.id}">${ico('left',18)}</button><button class="ib mv" data-a="mv" data-n="1" data-s="${s.id}" data-i="${i.id}">${ico('right',18)}</button><button class="ib mv" data-a="md" data-s="${s.id}" data-i="${i.id}">${ico('ne',18)}</button>`:'')
-      +`<button class="ib rm" data-a="rm" data-s="${s.id}" data-i="${i.id}">${ico('x',17)}</button><button class="ib" data-a="in" data-s="${s.id}" data-i="${i.id}">${ico('info',18)}</button></div>`});
-    h+='</div>'});
+    h+=L.map(i=>rowHTML(i,s,cur)).join('')+'</div>'});
   b.innerHTML=h;b.scrollTop=y;
 }
-$('#db').onclick=e=>{
+function act(e){
   const el=e.target.closest('[data-a]');if(!el)return;
-  const a=el.dataset.a,s=sec(el.dataset.s),i=DB.items.find(v=>v.id===el.dataset.i);
-  if(a==='ed')return secModal(s);
+  const a=el.dataset.a,s=sec(el.dataset.s),d=el.dataset.d||cur,i=DB.items.find(v=>v.id===el.dataset.i);
+  if(a==='ag')return openAgg(s);
+  if(a==='gd')return openDay(d);
+  if(a==='ed')return secModal(s,d);
   if(!i||!s)return;
-  if(a==='tg'){toggle(i,s,cur)}
-  else if(a==='mv'){moveItem(i,s,fmt(addD(parse(cur),+el.dataset.n)))}
-  else if(a==='md')return dateModal(i,s);
+  if(a==='tg')toggle(i,s,d);
+  else if(a==='mv')moveItem(i,s,fmt(addD(parse(d),+el.dataset.n)));
+  else if(a==='md')return dateModal(i,s,d);
   else if(a==='rm'){if(!confirm('Eliminare questa voce?'))return;delItem(i)}
-  else if(a==='in')return itemModal(s,i,renderDay);
-  renderDay();
-};
+  else if(a==='in')return itemModal(s,i,RR,d);
+  RR();
+}
+$('#db').onclick=act;$('#ab').onclick=act;
+
+/* ---------- VISTA PER DATE DI UNA SEZIONE TEMPORANEA ---------- */
+let aggS=null;
+function openAgg(s){aggS=s.id;RR=()=>renderAgg(false);show('agg');renderAgg(true)}
+function renderAgg(first){
+  const s=sec(aggS),b=$('#ab'),y=b.scrollTop;if(!s)return;$('#at').textContent=s.titolo;
+  const ds=[...new Set(DB.items.filter(i=>i.s===s.id&&i.d).map(i=>i.d))].sort(),t=fmt(T0);
+  let h=ds.length?'':'<div class="em">Nessuna voce in questa sezione.</div>';
+  ds.forEach(d=>{h+=`<div class="box" id="g${d}" style="--c:${esc(s.colore)}"><div class="bh"><b data-a="gd" data-d="${d}" style="cursor:pointer">${longD(d)}</b><button data-a="ed" data-s="${s.id}" data-d="${d}">Modifica</button></div>`
+    +dayItems(s,d).map(i=>rowHTML(i,s,d)).join('')+'</div>'});
+  b.innerHTML=h;
+  if(first){const k=ds.find(d=>d>=t)||ds[ds.length-1],el=k&&document.getElementById('g'+k);if(el)b.scrollTop=el.offsetTop-b.offsetTop-10}else b.scrollTop=y;
+}
+$('#ba').onclick=()=>openDay(cur);
 
 /* ---------- FINESTRE ---------- */
 function sheet(t,h){const o=document.createElement('div');o.className='ov';
   o.innerHTML=`<div class="sh"><div class="shh"><b>${t}</b><button class="ib" data-x>${ico('x')}</button></div><div class="shb">${h}</div></div>`;
   o.onclick=e=>{if(e.target===o||e.target.closest('[data-x]'))o.remove()};document.body.appendChild(o);return o}
-function secModal(s){
+function secModal(s,dt){dt=dt||cur;
   const o=sheet(esc(s.titolo),'<div id="el"></div><div class="acts"><button class="btn gh" id="ad">+ Aggiungi voce</button></div>');
-  const draw=()=>{o.querySelector('#el').innerHTML=dayItems(s,cur).map((i,k)=>
+  const draw=()=>{o.querySelector('#el').innerHTML=dayItems(s,dt).map((i,k)=>
     `<div class="er"><button class="ib sm" data-u="${k}">${ico('up',16)}</button><button class="ib sm" data-w="${k}">${ico('down',16)}</button><span data-e="${k}">${esc(i.t)}</span></div>`).join('')||'<p class="mu">Nessuna voce.</p>'};
-  const done=()=>{draw();renderDay()};draw();
-  o.querySelector('#el').onclick=e=>{const b=e.target.closest('[data-u],[data-w],[data-e]');if(!b)return;const L=dayItems(s,cur),d=b.dataset;
-    if(d.u!==undefined){reorder(L,+d.u,-1);done()}else if(d.w!==undefined){reorder(L,+d.w,1);done()}else itemModal(s,L[+d.e],done)};
-  o.querySelector('#ad').onclick=()=>itemModal(s,null,done);
+  const done=()=>{draw();RR()};draw();
+  o.querySelector('#el').onclick=e=>{const b=e.target.closest('[data-u],[data-w],[data-e]');if(!b)return;const L=dayItems(s,dt),d=b.dataset;
+    if(d.u!==undefined){reorder(L,+d.u,-1);done()}else if(d.w!==undefined){reorder(L,+d.w,1);done()}else itemModal(s,L[+d.e],done,dt)};
+  o.querySelector('#ad').onclick=()=>itemModal(s,null,done,dt);
 }
-function itemModal(s,i,cb){
+function itemModal(s,i,cb,dt){dt=dt||cur;
   const o=sheet(i?'Modifica voce':'Nuova voce',`<label>Titolo</label><input type="text" id="t" maxlength="200" value="${esc(i?i.t:'')}"><label>Dettaglio e appunti</label><textarea id="x">${esc(i?i.x:'')}</textarea><div class="acts">${i?'<button class="btn dg" id="dl">Elimina</button>':''}<button class="btn" id="sv">Salva</button></div>`);
   o.querySelector('#sv').onclick=()=>{const t=o.querySelector('#t').value.trim();if(!t)return toast('Inserisci un titolo');
-    const x=o.querySelector('#x').value;if(i){i.t=t;i.x=x;save()}else addItem(s,cur,t,x);o.remove();cb&&cb()};
+    const x=o.querySelector('#x').value;if(i){i.t=t;i.x=x;save()}else addItem(s,dt,t,x);o.remove();cb&&cb()};
   if(i)o.querySelector('#dl').onclick=()=>{if(confirm('Eliminare questa voce?')){delItem(i);o.remove();cb&&cb()}};
 }
-function dateModal(i,s){
-  const o=sheet('Sposta a una data',`<label>Data di destinazione</label><input type="date" id="dd" value="${cur}"><div class="acts"><button class="btn" id="go">Sposta</button></div>`);
-  o.querySelector('#go').onclick=()=>{const v=o.querySelector('#dd').value;if(!v)return toast('Scegli una data');moveItem(i,s,v);o.remove();renderDay()};
+function dateModal(i,s,dt){dt=dt||cur;
+  const o=sheet('Sposta a una data',`<label>Data di destinazione</label><input type="date" id="dd" value="${dt}"><div class="acts"><button class="btn" id="go">Sposta</button></div>`);
+  o.querySelector('#go').onclick=()=>{const v=o.querySelector('#dd').value;if(!v)return toast('Scegli una data');moveItem(i,s,v);o.remove();RR()};
 }
 
 /* ---------- IMPOSTAZIONI ---------- */
@@ -299,6 +331,10 @@ function readable(){
     if(s.tipo==='temporanea'){[...new Set(L.map(i=>i.d))].sort().forEach(d=>{h+=`<h3>${longD(d)}</h3><ul>`+L.filter(i=>i.d===d).sort((a,b)=>a.o-b.o).map(li).join('')+'</ul>'})}
     else h+='<ul>'+L.sort((a,b)=>a.o-b.o).map(li).join('')+'</ul>'});
   return h}
+$('#cl').onclick=()=>{const v=$('#cd').value;if(!v)return toast('Scegli una data');
+  const n=DB.items.filter(i=>i.d&&i.d<v).length;if(!n)return toast('Nessuna voce da eliminare');
+  if(!confirm('Eliminare '+n+' voci temporanee precedenti al '+longD(v)+'?'))return;
+  DB.items=DB.items.filter(i=>!(i.d&&i.d<v));save();toast(n+' voci eliminate')};
 $('#im').onclick=()=>$('#imf').click();
 $('#imf').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=()=>{try{const j=JSON.parse(r.result);
